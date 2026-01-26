@@ -1,19 +1,19 @@
-<!DOCTYPE html>
-<html lang="ko">
-
-<head>
-    <meta charset="UTF-8" />
-    <title>Neon Survival</title>
-    <link rel="stylesheet" href="style.css" />
-</head>
-
-<body>
-    <div id="hud">
-        <div id="hp">HP ████████</div>
-        <div id="mode">MODE: MELEE</div>
+<div id="hud">
+    <div class="bar">
+        <span>HP</span>
+        <div class="gauge hp">
+            <div></div>
+        </div>
     </div>
-    <canvas id="game"></canvas>
-    <script src="game.js"></script>
-</body>
-
-</html>
+    <div class="bar">
+        <span>SHIELD</span>
+        <div class="gauge shield">
+            <div></div>
+        </div>
+    </div>
+    <div class="dash">
+        DASH
+        <div id="dash-icons"></div>
+    </div>
+    <div id="stage">STAGE 1</div>
+</div>

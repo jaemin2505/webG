@@ -1,9 +1,13 @@
 body {
     margin: 0;
-    background: #0b0f1a;
+    background: #05070f;
     color: #00eaff;
-    font-family: 'Pretendard', sans-serif;
+    font-family: Pretendard, sans-serif;
     overflow: hidden;
+}
+
+canvas {
+    display: block;
 }
 
 #hud {
@@ -11,11 +15,47 @@ body {
     top: 16px;
     left: 16px;
     display: flex;
-    gap: 20px;
+    flex-direction: column;
+    gap: 10px;
+    color: #0ff;
     font-weight: bold;
-    text-shadow: 0 0 8px #00eaff;
 }
 
-canvas {
-    display: block;
+.bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.gauge {
+    width: 140px;
+    height: 10px;
+    border: 1px solid #0ff;
+}
+
+.gauge div {
+    height: 100%;
+}
+
+.gauge.hp div {
+    background: #ff4d4d;
+}
+
+.gauge.shield div {
+    background: #4d9cff;
+}
+
+.dash {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#dash-icons span {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #0ff;
+    display: inline-block;
+    margin-right: 4px;
 }
