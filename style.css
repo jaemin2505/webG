@@ -1,0 +1,21 @@
+body {
+    margin: 0;
+    background: #0b0f1a;
+    color: #00eaff;
+    font-family: 'Pretendard', sans-serif;
+    overflow: hidden;
+}
+
+#hud {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    display: flex;
+    gap: 20px;
+    font-weight: bold;
+    text-shadow: 0 0 8px #00eaff;
+}
+
+canvas {
+    display: block;
+}
