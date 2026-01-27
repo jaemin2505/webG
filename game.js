@@ -42,12 +42,12 @@ const player = {
     r: 12,
     speed: 3,
 
+    mode: "melee",
+
     maxHp: 100,
     hp: 100,
-
     maxShield: 50,
     shield: 50,
-
     maxDash: 3,
     dash: 3
 };
@@ -117,11 +117,6 @@ function drawEnemyHp(e) {
     ctx.fillStyle = "#f33";
     ctx.fillRect(e.x - w / 2, e.y - e.r - 8, w * ratio, h);
 }
-
-enemies.forEach(e => {
-    drawCircle(e.x, e.y, e.r, "#f33");
-    drawEnemyHp(e);
-});
 
 function startWave() {
     for (let i = 0; i < stage * 3; i++) {
@@ -271,9 +266,15 @@ function drawCircle(x, y, r, c) {
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
     drawMap();
     drawCircle(player.x, player.y, player.r, "#0ff");
-    enemies.forEach(e => drawCircle(e.x, e.y, e.r, "#f33"));
+
+    enemies.forEach(e => {
+        drawCircle(e.x, e.y, e.r, "#f33");
+        drawEnemyHp(e);
+    });
+
     bullets.forEach(b => drawCircle(b.x, b.y, 4, "#fff"));
     if (boss) drawCircle(boss.x, boss.y, boss.r, "#f0f");
 }

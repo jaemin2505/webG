@@ -1,19 +1,35 @@
-<div id="hud">
-    <div class="bar">
-        <span>HP</span>
-        <div class="gauge hp">
-            <div></div>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <div id="hud">
+        <div class="bar">
+            <span>HP</span>
+            <div class="gauge hp">
+                <div></div>
+            </div>
         </div>
-    </div>
-    <div class="bar">
-        <span>SHIELD</span>
-        <div class="gauge shield">
-            <div></div>
+        <div class="bar">
+            <span>SHIELD</span>
+            <div class="gauge shield">
+                <div></div>
+            </div>
         </div>
+        <div class="dash">
+            DASH
+            <div id="dash-icons"></div>
+        </div>
+        <div id="stage">STAGE 1</div>
     </div>
-    <div class="dash">
-        DASH
-        <div id="dash-icons"></div>
-    </div>
-    <div id="stage">STAGE 1</div>
-</div>
+
+    <canvas id="game"></canvas>
+    <script src="game.js"></script>
+</body>
+
+</html>

@@ -8,6 +8,8 @@ body {
 
 canvas {
     display: block;
+    width: 100vw;
+    height: 100vh;
 }
 
 #hud {
@@ -19,6 +21,7 @@ canvas {
     gap: 10px;
     color: #0ff;
     font-weight: bold;
+    z-index: 10;
 }
 
 .bar {
