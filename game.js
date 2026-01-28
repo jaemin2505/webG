@@ -20,6 +20,14 @@ let shootCooldown = 0;
 let damageTexts = [];
 let meleeEffects = [];
 
+const CONTACT = {
+    INTERVAL_MS: 500, // 0.5초
+    BLINK_MS: 350 // 맞았을 때 깜빡이는 시간
+};
+
+let lastContactDamageAt = 0; // 마지막 접촉 데미지 시각(ms)
+let hitFlashUntil = 0; // 깜빡임 종료 시각(ms)
+
 /* ======================
    MAP SYSTEM
 ====================== */
@@ -164,13 +172,20 @@ let enemies = [];
 function spawnEnemy() {
     const angle = Math.random() * Math.PI * 2;
     const dist = 300;
+
+    const hp = 5 + stage * 2;
+    const speed = 1 + stage * 0.2;
+
     return {
         x: player.x + Math.cos(angle) * dist,
         y: player.y + Math.sin(angle) * dist,
         r: 10,
-        maxHp: 5 + stage * 2,
-        hp: 5 + stage * 2,
-        speed: 1 + stage * 0.2
+        maxHp: hp,
+        hp: hp,
+        speed: speed,
+
+        // 몬스터 접촉 공격력(스테이지 따라 증가 예시)
+        atk: 2 + Math.floor(stage * 0.8)
     };
 }
 
@@ -207,7 +222,10 @@ function spawnBoss() {
         r: 40,
         maxHp: baseHp,
         hp: baseHp,
-        phase: 1
+        phase: 1,
+
+        // 보스 접촉 공격력
+        atk: 8 + stage * 2
     };
 }
 
@@ -253,13 +271,12 @@ function meleeAttackCone() {
 
     const baseAngle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
 
-    // 공통: 부채꼴 판정 함수
+    // 공통: 부채꼴(거리+각도) 판정
     function isInCone(tx, ty, extraRadius = 0) {
         const dx = tx - player.x;
         const dy = ty - player.y;
         const dist = Math.hypot(dx, dy);
 
-        // 보스 같은 큰 대상은 반지름만큼 보정
         if (dist > range + extraRadius) return false;
 
         const ang = Math.atan2(dy, dx);
@@ -269,31 +286,17 @@ function meleeAttackCone() {
         return diff <= cone / 2;
     }
 
-    // 1) 보스 먼저 (원거리처럼)
+    // 1) 보스도 범위 안이면 타격
     if (boss && isInCone(boss.x, boss.y, boss.r)) {
         applyDamageToTarget(boss, DAMAGE.MELEE, -boss.r);
-        return; // 근접 1타 = 1대상 타격(원거리 히트 처리와 동일한 느낌)
     }
 
-    // 2) 일반 몬스터들 중 하나만(가장 가까운 것) 타격
-    let bestIdx = -1;
-    let bestDist = Infinity;
-
-    for (let i = 0; i < enemies.length; i++) {
-        const e = enemies[i];
-        if (!isInCone(e.x, e.y, e.r)) continue;
-
-        const d = Math.hypot(e.x - player.x, e.y - player.y);
-        if (d < bestDist) {
-            bestDist = d;
-            bestIdx = i;
+    // 2) 범위 안의 모든 몬스터 타격
+    enemies.forEach(e => {
+        if (isInCone(e.x, e.y, e.r)) {
+            applyDamageToTarget(e, DAMAGE.MELEE, 0);
         }
-    }
-
-    if (bestIdx !== -1) {
-        const e = enemies[bestIdx];
-        applyDamageToTarget(e, DAMAGE.MELEE, 0);
-    }
+    });
 }
 
 function spawnMeleeEffect() {
@@ -380,6 +383,39 @@ function updateEnemies() {
 
     // 죽은 적 제거
     enemies = enemies.filter(e => e.hp > 0);
+}
+
+function getContactAtk() {
+    let maxAtk = 0;
+
+    // 일반 몬스터들
+    for (let i = 0; i < enemies.length; i++) {
+        const e = enemies[i];
+        const d = Math.hypot(e.x - player.x, e.y - player.y);
+        if (d < e.r + player.r) {
+            maxAtk = Math.max(maxAtk, e.atk || 0);
+        }
+    }
+
+    // 보스
+    if (boss) {
+        const dBoss = Math.hypot(boss.x - player.x, boss.y - player.y);
+        if (dBoss < boss.r + player.r) {
+            maxAtk = Math.max(maxAtk, boss.atk || 0);
+        }
+    }
+
+    return maxAtk; // 0이면 닿은 적 없음
+}
+
+function updateContactDamage(now) {
+  const atk = getContactAtk(); // 닿아있는 적의 공격력(최댓값)
+
+  if (atk > 0 && (now - lastContactDamageAt) >= CONTACT.INTERVAL_MS) {
+    damagePlayer(atk);
+    lastContactDamageAt = now;
+    hitFlashUntil = now + CONTACT.BLINK_MS;
+  }
 }
 
 function updateDamageTexts() {
@@ -563,7 +599,15 @@ function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     drawMap();
-    drawCircle(player.x, player.y, player.r, "#0ff");
+
+    const now = performance.now();
+    const flashing = now < hitFlashUntil;
+    const blinkOff = flashing && (Math.floor(now / 80) % 2 === 0); // 80ms 간격 깜빡
+
+    if (!blinkOff) {
+        drawCircle(player.x, player.y, player.r, "#0ff");
+    }
+
     drawMeleeEffects();
 
     enemies.forEach(e => {
@@ -579,10 +623,14 @@ function draw() {
    LOOP
 ====================== */
 function loop() {
+    const now = performance.now();
+
     updatePlayer();
     updateEnemies();
     updateBoss();
     updateBullets();
+
+    updateContactDamage(now);
     updateWaveProgress();
 
     draw();
