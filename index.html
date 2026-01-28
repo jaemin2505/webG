@@ -5,7 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
-    <link rel="stylesheet" href="style.css"></link>
+    <link rel="stylesheet" href="style.css">
+    </link>
 </head>
 
 <body>
@@ -34,6 +35,18 @@
         <div id="stage">STAGE 1</div>
     </div>
 
+    <!-- BOSS HP BAR (TOP CENTER) -->
+    <div id="bossHud" class="bossHud is-hidden" aria-live="polite">
+        <div class="bossHud__row">
+            <div class="bossHud__name" id="bossName">BOSS</div>
+            <div class="bossHud__text" id="bossHpText"></div>
+        </div>
+
+        <div class="bossHud__bar" role="progressbar" aria-label="Boss HP">
+            <div class="bossHud__fill" id="bossHpFill"></div>
+        </div>
+    </div>
+    
     <canvas id="game"></canvas>
     <script src="game.js"></script>
 </body>
