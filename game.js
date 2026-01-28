@@ -15,6 +15,9 @@ let gameState = GameState.WAVE;
 let stage = 1;
 let wave = 1;
 const WAVES_PER_STAGE = 3;
+let shooting = false;
+let shootCooldown = 0;
+let damageTexts = [];
 
 /* ======================
    MAP SYSTEM
@@ -34,6 +37,38 @@ function loadMap() {
 }
 
 /* ======================
+   DAMAGE SETTINGS
+====================== */
+const CRIT = {
+    CHANCE: 0.1,    // 10%
+    MULTIPLIER: 1.5
+};
+
+const DAMAGE = {
+    MELEE: 2,
+    RANGE: 1
+};
+
+function calculateDamage(base) {
+    const isCrit = Math.random() < CRIT.CHANCE;
+    const dmg = isCrit
+        ? Math.floor(base * CRIT.MULTIPLIER)
+        : base;
+
+    return { dmg, isCrit };
+}
+
+function spawnDamageText(x, y, dmg, isCrit) {
+    damageTexts.push({
+        x,
+        y,
+        dmg,
+        isCrit,
+        life: 40
+    });
+}
+
+/* ======================
    PLAYER
 ====================== */
 const player = {
@@ -48,8 +83,12 @@ const player = {
     hp: 100,
     maxShield: 50,
     shield: 50,
+
     maxDash: 3,
-    dash: 3
+    dash: 3,
+
+    isDashing: false,
+    dashCooldown: 0
 };
 
 const keys = {};
@@ -58,6 +97,11 @@ window.addEventListener("keydown", e => {
     if (e.code === "Space") {
         player.mode = player.mode === "melee" ? "range" : "melee";
         mode.innerText = `MODE: ${player.mode.toUpperCase()}`;
+    }
+    if (e.key === "shift" && player.dash > 0 && !player.isDashing) {
+        player.isDashing = true;
+        player.dash--;
+        player.dashCooldown = 20; // 회복용
     }
 });
 window.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
@@ -155,25 +199,57 @@ canvas.addEventListener("mousemove", e => {
     mouse.y = e.clientY;
 });
 
-canvas.addEventListener("click", () => {
-    if (player.mode !== "range") return;
-    const a = Math.atan2(mouse.y - player.y, mouse.x - player.x);
-    bullets.push({
-        x: player.x,
-        y: player.y,
-        vx: Math.cos(a) * 6,
-        vy: Math.sin(a) * 6
-    });
+canvas.addEventListener("mousedown", () => {
+    if (player.mode === "range") shooting = true;
 });
 
-function meleeAttack() {
+canvas.addEventListener("mouseup", () => {
+    shooting = false;
+});
+
+function meleeAttackCone() {
+    const range = 80;                 // 공격 거리
+    const coneAngle = Math.PI / 3;    // 60도 부채꼴
+
+    // 기준 방향 (플레이어 → 마우스)
+    const baseAngle = Math.atan2(
+        mouse.y - player.y,
+        mouse.x - player.x
+    );
+
     enemies.forEach(e => {
-        const d = Math.hypot(e.x - player.x, e.y - player.y);
-        if (d < 60) e.hp--;
+        const dx = e.x - player.x;
+        const dy = e.y - player.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist > range) return;
+
+        const enemyAngle = Math.atan2(dy, dx);
+        let diff = Math.abs(enemyAngle - baseAngle);
+
+        // 각도 보정 (PI 넘어가는 문제 해결)
+        if (diff > Math.PI) diff = Math.PI * 2 - diff;
+
+        if (diff < coneAngle / 2) {
+            e.hp -= DAMAGE.MELEE;
+        }
     });
+
+    // 보스도 동일하게
     if (boss) {
-        const d = Math.hypot(boss.x - player.x, boss.y - player.y);
-        if (d < 80) boss.hp--;
+        const dx = boss.x - player.x;
+        const dy = boss.y - player.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist < range) {
+            const bossAngle = Math.atan2(dy, dx);
+            let diff = Math.abs(bossAngle - baseAngle);
+            if (diff > Math.PI) diff = Math.PI * 2 - diff;
+
+            if (diff < coneAngle / 2) {
+                boss.hp -= DAMAGE.MELEE;
+            }
+        }
     }
 }
 
@@ -181,11 +257,37 @@ function meleeAttack() {
    UPDATE
 ====================== */
 function updatePlayer() {
-    if (keys["w"]) player.y -= player.speed;
-    if (keys["s"]) player.y += player.speed;
-    if (keys["a"]) player.x -= player.speed;
-    if (keys["d"]) player.x += player.speed;
+    let vx = 0;
+    let vy = 0;
 
+    if (keys["w"]) vy -= 1;
+    if (keys["s"]) vy += 1;
+    if (keys["a"]) vx -= 1;
+    if (keys["d"]) vx += 1;
+
+    const len = Math.hypot(vx, vy) || 1;
+    vx /= len;
+    vy /= len;
+
+    const speed = player.isDashing ? 10 : player.speed;
+    player.x += vx * speed;
+    player.y += vy * speed;
+
+    // 대쉬 종료
+    if (player.isDashing) {
+        player.isDashing = false;
+    }
+
+    // 대쉬 회복
+    if (player.dash < player.maxDash) {
+        player.dashCooldown--;
+        if (player.dashCooldown <= 0) {
+            player.dash++;
+            player.dashCooldown = 60;
+        }
+    }
+
+    // 맵 경계
     const left = canvas.width / 2 - currentMap.width / 2 + player.r;
     const right = canvas.width / 2 + currentMap.width / 2 - player.r;
     const top = canvas.height / 2 - currentMap.height / 2 + player.r;
@@ -202,6 +304,19 @@ function updateEnemies() {
         e.y += Math.sin(a) * e.speed;
     });
 
+    // 플레이어 충돌 처리
+    const dx = e.x - player.x;
+    const dy = e.y - player.y;
+    const dist = Math.hypot(dx, dy);
+    const minDist = e.r + player.r;
+
+    if (dist < minDist) {
+        const nx = dx / dist;
+        const ny = dy / dist;
+        e.x = player.x + nx * minDist;
+        e.y = player.y + ny * minDist;
+    }
+
     enemies = enemies.filter(e => e.hp > 0);
 
     if (enemies.length === 0 && gameState === GameState.WAVE) {
@@ -212,6 +327,14 @@ function updateEnemies() {
             startWave();
         }
     }
+}
+
+function updateDamageTexts() {
+    damageTexts.forEach(t => {
+        t.y -= 0.5;
+        t.life--;
+    });
+    damageTexts = damageTexts.filter(t => t.life > 0);
 }
 
 function updateBoss() {
@@ -230,14 +353,38 @@ function updateBoss() {
 }
 
 function updateBullets() {
+    if (shooting && player.mode === "melee") {
+        shootCooldown--;
+        if (shootCooldown <= 0) {
+            meleeAttackCone();
+            shootCooldown = 4; // 근접 공격 속도
+        }
+    }
+
+    if (shooting && player.mode === "range") {
+        shootCooldown--;
+        if (shootCooldown <= 0) {
+            const a = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+            bullets.push({
+                x: player.x,
+                y: player.y,
+                vx: Math.cos(a) * 6,
+                vy: Math.sin(a) * 6
+            });
+            shootCooldown = 7; // 연사 속도
+        }
+    }
+
     bullets.forEach(b => {
         b.x += b.vx;
         b.y += b.vy;
         enemies.forEach(e => {
-            if (Math.hypot(b.x - e.x, b.y - e.y) < e.r) e.hp--;
+            if (Math.hypot(b.x - e.x, b.y - e.y) < e.r) {
+                e.hp -= DAMAGE.RANGE;
+            }
         });
         if (boss && Math.hypot(b.x - boss.x, b.y - boss.y) < boss.r) {
-            boss.hp--;
+            boss.hp -= DAMAGE.RANGE;
         }
     });
     bullets = bullets.filter(b => b.x > 0 && b.y > 0);

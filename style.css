@@ -1,64 +1,112 @@
 body {
     margin: 0;
-    background: #05070f;
+    background: #000000;
     color: #00eaff;
     font-family: Pretendard, sans-serif;
     overflow: hidden;
 }
 
-canvas {
-    display: block;
-    width: 100vw;
-    height: 100vh;
-}
-
+/* =========================
+   HUD NEON PANEL
+========================= */
 #hud {
     position: fixed;
-    top: 16px;
-    left: 16px;
+    top: 20px;
+    left: 20px;
+    z-index: 10;
+    color: #0ff;
+    font-family: Pretendard, sans-serif;
+}
+
+.panel {
+    background: rgba(5, 10, 25, 0.75);
+    border: 1px solid rgba(0, 255, 255, 0.6);
+    box-shadow:
+        0 0 10px rgba(0, 255, 255, 0.4),
+        inset 0 0 10px rgba(0, 255, 255, 0.2);
+    padding: 14px 16px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    color: #0ff;
-    font-weight: bold;
-    z-index: 10;
+    gap: 14px;
+    width: 220px;
 }
 
-.bar {
+/* =========================
+   STAT ROW
+========================= */
+.stat {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    flex-direction: column;
+    gap: 6px;
 }
 
+.label {
+    font-size: 12px;
+    letter-spacing: 1px;
+    opacity: 0.8;
+}
+
+/* =========================
+   GAUGE BAR
+========================= */
 .gauge {
-    width: 140px;
-    height: 10px;
-    border: 1px solid #0ff;
+    width: 100%;
+    height: 14px;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(0, 255, 255, 0.4);
+    position: relative;
+    overflow: hidden;
 }
 
 .gauge div {
     height: 100%;
+    width: 100%;
+    box-shadow: 0 0 12px currentColor;
+}
+
+/* HP */
+.gauge.hp {
+    color: #ff4d4d;
 }
 
 .gauge.hp div {
-    background: #ff4d4d;
+    background: linear-gradient(90deg, #ff4d4d, #ff9a9a);
+}
+
+/* SHIELD */
+.gauge.shield {
+    color: #4d9cff;
 }
 
 .gauge.shield div {
-    background: #4d9cff;
+    background: linear-gradient(90deg, #4d9cff, #8cc6ff);
 }
 
-.dash {
+/* =========================
+   DASH ICONS
+========================= */
+#dash-icons {
     display: flex;
-    align-items: center;
     gap: 6px;
 }
 
 #dash-icons span {
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
     background: #0ff;
-    display: inline-block;
-    margin-right: 4px;
+    box-shadow: 0 0 10px #0ff;
+}
+
+/* =========================
+   STAGE TEXT
+========================= */
+#stage {
+    margin-top: 12px;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-shadow:
+        0 0 10px #0ff,
+        0 0 20px #0ff;
 }
