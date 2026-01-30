@@ -1097,6 +1097,7 @@ const bossNameEl = document.getElementById("bossName");
 function setBossHudVisible(visible) {
     if (!bossHud) return;
     bossHud.classList.toggle("is-hidden", !visible);
+    document.body.classList.toggle("boss-on", !!visible);
 }
 
 function updateBossHud() {

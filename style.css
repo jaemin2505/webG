@@ -12,10 +12,21 @@ body {
 #hud {
     position: fixed;
     top: 20px;
-    left: 20px;
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 10;
     color: #0ff;
     font-family: Pretendard, sans-serif;
+
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+/* 보스 HUD가 떠 있을 때는 겹치지 않게 아래로 내림 */
+body.boss-on #hud {
+    top: 92px;
 }
 
 .panel {
@@ -24,11 +35,16 @@ body {
     box-shadow:
         0 0 10px rgba(0, 255, 255, 0.4),
         inset 0 0 10px rgba(0, 255, 255, 0.2);
-    padding: 14px 16px;
+    padding: 12px 14px;
+
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    /* ✅ 가로 배치 */
+    align-items: flex-end;
     gap: 14px;
-    width: 220px;
+
+    width: auto;
+    max-width: calc(100vw - 40px);
 }
 
 /* =========================
@@ -38,12 +54,38 @@ body {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    min-width: 150px;
 }
 
-.label {
-    font-size: 12px;
-    letter-spacing: 1px;
-    opacity: 0.8;
+.stat.dash {
+    min-width: 120px;
+}
+
+/* DASH ICONS (조금 컴팩트) */
+#dash-icons span {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #0ff;
+    box-shadow: 0 0 10px #0ff;
+}
+
+/* STAGE TEXT (옆에 붙도록 컴팩트) */
+#stage {
+    margin-top: 0;
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-shadow:
+        0 0 10px #0ff,
+        0 0 20px #0ff;
+
+    padding: 10px 12px;
+    background: rgba(5, 10, 25, 0.65);
+    border: 1px solid rgba(0, 255, 255, 0.45);
+    box-shadow:
+        0 0 10px rgba(0, 255, 255, 0.25),
+        inset 0 0 10px rgba(0, 255, 255, 0.10);
 }
 
 /* =========================
