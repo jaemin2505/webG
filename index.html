@@ -1,54 +1,75 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-    <link rel="stylesheet" href="style.css">
-    </link>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neon Survival</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
-    <div id="hud">
-        <div class="panel">
-            <div class="stat">
-                <div class="label">HP</div>
-                <div class="gauge hp">
-                    <div></div>
-                </div>
-            </div>
+  <!-- MAIN MENU OVERLAY -->
+  <div id="mainMenu" class="overlay">
+    <div class="overlay__card">
+      <h1 class="overlay__title">NEON SURVIVAL</h1>
+      <p class="overlay__desc">이동: WASD / 대쉬: Shift / 공격: 마우스 / 모드 전환: Space</p>
+      <button id="btnStart" class="btn btn--primary">게임 시작</button>
+    </div>
+  </div>
 
-            <div class="stat">
-                <div class="label">SHIELD</div>
-                <div class="gauge shield">
-                    <div></div>
-                </div>
-            </div>
+  <!-- GAME OVER OVERLAY -->
+  <div id="gameOver" class="overlay is-hidden">
+    <div class="overlay__card">
+      <h1 class="overlay__title">GAME OVER</h1>
+      <p id="gameOverDesc" class="overlay__desc"></p>
+      <button id="btnToMain" class="btn btn--ghost">메인으로</button>
+    </div>
+  </div>
 
-            <div class="stat dash">
-                <div class="label">DASH</div>
-                <div id="dash-icons"></div>
-            </div>
+  <!-- 기존 HUD 그대로 -->
+  <div id="hud">
+    <div class="panel">
+      <div class="stat">
+        <div class="label">HP</div>
+        <div class="gauge hp">
+          <div></div>
         </div>
+      </div>
 
-        <div id="stage">STAGE 1</div>
+      <div class="stat">
+        <div class="label">SHIELD</div>
+        <div class="gauge shield">
+          <div></div>
+        </div>
+      </div>
+
+      <div class="stat dash">
+        <div class="label">DASH</div>
+        <div id="dash-icons"></div>
+      </div>
     </div>
 
-    <!-- BOSS HP BAR (TOP CENTER) -->
-    <div id="bossHud" class="bossHud is-hidden" aria-live="polite">
-        <div class="bossHud__row">
-            <div class="bossHud__name" id="bossName">BOSS</div>
-            <div class="bossHud__text" id="bossHpText"></div>
-        </div>
+    <div id="stage">STAGE 1</div>
 
-        <div class="bossHud__bar" role="progressbar" aria-label="Boss HP">
-            <div class="bossHud__fill" id="bossHpFill"></div>
-        </div>
+    <!-- (선택) mode 표시가 원래 없으면 추가 -->
+    <div id="mode" style="display:none;"></div>
+  </div>
+
+  <!-- BOSS HP BAR (TOP CENTER) -->
+  <div id="bossHud" class="bossHud is-hidden" aria-live="polite">
+    <div class="bossHud__row">
+      <div class="bossHud__name" id="bossName">BOSS</div>
+      <div class="bossHud__text" id="bossHpText"></div>
     </div>
-    
-    <canvas id="game"></canvas>
-    <script src="game.js"></script>
+
+    <div class="bossHud__bar" role="progressbar" aria-label="Boss HP">
+      <div class="bossHud__fill" id="bossHpFill"></div>
+    </div>
+  </div>
+
+  <canvas id="game"></canvas>
+  <script src="game.js"></script>
 </body>
 
 </html>

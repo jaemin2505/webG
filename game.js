@@ -4,6 +4,54 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 /* ======================
+   APP FLOW (MENU / PLAY / GAMEOVER)
+====================== */
+const UI = {
+    mainMenu: document.getElementById("mainMenu"),
+    gameOver: document.getElementById("gameOver"),
+    gameOverDesc: document.getElementById("gameOverDesc"),
+    btnStart: document.getElementById("btnStart"),
+    btnToMain: document.getElementById("btnToMain"),
+    hud: document.getElementById("hud")
+};
+
+const AppState = {
+    MENU: "menu",
+    PLAYING: "playing",
+    GAMEOVER: "gameover"
+};
+
+let appState = AppState.MENU;
+let rafId = null;
+
+function setAppState(next) {
+    appState = next;
+
+    const isMenu = next === AppState.MENU;
+    const isPlaying = next === AppState.PLAYING;
+    const isGameOver = next === AppState.GAMEOVER;
+
+    if (UI.mainMenu) UI.mainMenu.classList.toggle("is-hidden", !isMenu);
+    if (UI.gameOver) UI.gameOver.classList.toggle("is-hidden", !isGameOver);
+
+    // HUD는 플레이 중에만
+    if (UI.hud) UI.hud.style.display = isPlaying ? "" : "none";
+
+    // 보스 HUD는 플레이 중이 아닐 때는 숨김
+    if (!isPlaying) setBossHudVisible(false);
+}
+
+function stopLoop() {
+    if (rafId != null) cancelAnimationFrame(rafId);
+    rafId = null;
+}
+
+function safeClearInputs() {
+    shooting = false;
+    for (const k in keys) delete keys[k];
+}
+
+/* ======================
    GAME STATE
 ====================== */
 const GameState = {
@@ -27,22 +75,70 @@ const CONTACT = {
 
 let hitFlashUntil = 0; // 깜빡임 종료 시각(ms)
 
-
 /* ======================
-   MAP SYSTEM
+   MAP SYSTEM (RECT / CIRCLE, RANDOM SIZE)
 ====================== */
-const maps = [
-    { width: 600, height: 400 },
-    { width: 800, height: 500 },
-    { width: 500, height: 500 }
-];
+const MAP_CONF = {
+    EDGE_PAD: 90,       // 화면 가장자리로부터 맵이 너무 붙지 않게 여백
+    PICK_CIRCLE_PROB: 0.45, // 원형 맵 등장 확률
 
-let currentMap = maps[0];
+    // 사각형 크기 범위
+    RECT_MIN_W: 520,
+    RECT_MAX_W: 980,
+    RECT_MIN_H: 360,
+    RECT_MAX_H: 720,
+
+    // 원형 반지름 범위
+    CIRCLE_MIN_R: 260,
+    CIRCLE_MAX_R: 520
+};
+
+function randInt(min, max) {
+    min = Math.floor(min);
+    max = Math.floor(max);
+    if (max < min) return min;
+    return Math.floor(min + Math.random() * (max - min + 1));
+}
+
+function generateRandomMap() {
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+
+    // 화면 크기에 맞춰 상한을 자동으로 줄임
+    const pad = MAP_CONF.EDGE_PAD;
+    const maxW = Math.min(MAP_CONF.RECT_MAX_W, canvas.width - pad * 2);
+    const maxH = Math.min(MAP_CONF.RECT_MAX_H, canvas.height - pad * 2);
+    const minW = Math.min(MAP_CONF.RECT_MIN_W, maxW);
+    const minH = Math.min(MAP_CONF.RECT_MIN_H, maxH);
+
+    const circleMaxR = Math.min(
+        MAP_CONF.CIRCLE_MAX_R,
+        Math.floor(Math.min(canvas.width, canvas.height) / 2) - pad
+    );
+    const circleMinR = Math.min(MAP_CONF.CIRCLE_MIN_R, circleMaxR);
+
+    const isCircle = Math.random() < MAP_CONF.PICK_CIRCLE_PROB;
+
+    if (!isCircle || circleMaxR <= 120) {
+        const w = randInt(minW, maxW);
+        const h = randInt(minH, maxH);
+        return { shape: "rect", cx, cy, width: w, height: h };
+    } else {
+        const r = randInt(circleMinR, circleMaxR);
+        return { shape: "circle", cx, cy, radius: r };
+    }
+}
+
+let currentMap = generateRandomMap();
 
 function loadMap() {
-    currentMap = maps[(stage - 1) % maps.length];
-    player.x = canvas.width / 2;
-    player.y = canvas.height / 2;
+    // 스테이지 진입 시 맵(형태/크기) 랜덤으로 새로 뽑기
+    currentMap = generateRandomMap();
+
+    // 플레이어는 항상 맵 중앙에서 시작
+    player.x = currentMap.cx;
+    player.y = currentMap.cy;
+    clampPlayerToMap();
 }
 
 /* ======================
@@ -60,35 +156,28 @@ const DAMAGE = {
 
 function calculateDamage(base) {
     const isCrit = Math.random() < CRIT.CHANCE;
-    const dmg = isCrit
-        ? Math.floor(base * CRIT.MULTIPLIER)
-        : base;
-
+    const dmg = isCrit ? Math.floor(base * CRIT.MULTIPLIER) : base;
     return { dmg, isCrit };
 }
 
 function applyDamageToTarget(target, baseDamage, textOffsetY = 0) {
     const { dmg, isCrit } = calculateDamage(baseDamage);
-
-    // boss/enemy 둘 다 hp가 있음
     target.hp -= dmg;
 
-    // 데미지 텍스트 위치 통일
     const tx = target.x;
     const ty = target.y + textOffsetY;
     spawnDamageText(tx, ty, dmg, isCrit);
 }
 
 // =====================
-// KNOCKBACK (플레이어 공격에 맞으면 넉백)
-// - player.mode(melee/range) + enemy.type 별로 강도 조절
+// KNOCKBACK
 // =====================
 const KNOCKBACK = {
     melee: { default: 4.2, grunt: 5.2, runner: 4.6, tank: 2.8, shooter: 4.9, boss: 1.9 },
     range: { default: 3.0, grunt: 3.6, runner: 3.2, tank: 1.9, shooter: 3.4, boss: 1.2 }
 };
-const KNOCKBACK_DECAY = 0.84; // 매 프레임 감쇠
-const KNOCKBACK_CAP = 18;     // 속도 상한(너무 멀리 튕기는 것 방지)
+const KNOCKBACK_DECAY = 0.84;
+const KNOCKBACK_CAP = 18;
 
 function applyKnockbackToTarget(target, mode, dirX, dirY) {
     if (!target) return;
@@ -101,11 +190,9 @@ function applyKnockbackToTarget(target, mode, dirX, dirY) {
     const nx = dirX / len;
     const ny = dirY / len;
 
-    // kb 속도 누적
     target.kbVx = (target.kbVx || 0) + nx * strength;
     target.kbVy = (target.kbVy || 0) + ny * strength;
 
-    // 상한
     const sp = Math.hypot(target.kbVx, target.kbVy);
     if (sp > KNOCKBACK_CAP) {
         target.kbVx = (target.kbVx / sp) * KNOCKBACK_CAP;
@@ -113,30 +200,22 @@ function applyKnockbackToTarget(target, mode, dirX, dirY) {
     }
 }
 
-// 플레이어가 준 타격(데미지 + 넉백) 공통 처리
 function applyPlayerHit(target, baseDamage, textOffsetY, mode, dirX, dirY) {
     applyDamageToTarget(target, baseDamage, textOffsetY);
     applyKnockbackToTarget(target, mode, dirX, dirY);
 }
 
-
 function spawnDamageText(x, y, dmg, isCrit) {
-    damageTexts.push({
-        x,
-        y,
-        dmg,
-        isCrit,
-        life: 40
-    });
+    damageTexts.push({ x, y, dmg, isCrit, life: 40 });
 }
 
 /* ======================
    MELEE SETTINGS
 ====================== */
 const MELEE = {
-    RANGE: 70,              // 공격 거리
-    SPREAD: Math.PI / 3,    // 60도 부채꼴
-    COOLDOWN: 20
+    RANGE: 40,
+    SPREAD: Math.PI / 3,
+    COOLDOWN: 40
 };
 
 /* ======================
@@ -173,17 +252,23 @@ const keys = {};
 window.addEventListener("keydown", e => {
     keys[e.key.toLowerCase()] = true;
 
+    // ✅ 메뉴/게임오버에서는 실제 기능 동작 막기
+    if (appState !== AppState.PLAYING) return;
+
     if (e.code === "Space") {
         player.mode = player.mode === "melee" ? "range" : "melee";
         if (mode) mode.innerText = `MODE: ${player.mode.toUpperCase()}`;
     }
 
-    // Shift 대쉬 (ShiftLeft / ShiftRight)
+    // Shift 대쉬
     if (!e.repeat && (e.code === "ShiftLeft" || e.code === "ShiftRight")) {
         tryStartDash();
     }
 });
-window.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+window.addEventListener("keyup", e => {
+    keys[e.key.toLowerCase()] = false;
+});
 
 const DASH = {
     SPEED: 12,
@@ -195,7 +280,6 @@ function tryStartDash() {
     if (player.dash <= 0) return;
     if (player.isDashing) return;
 
-    // 입력 방향이 있으면 그 방향, 없으면 마지막 이동 방향
     let vx = 0;
     let vy = 0;
     if (keys["w"]) vy -= 1;
@@ -218,21 +302,19 @@ function tryStartDash() {
     player.dashVy = vy;
 
     player.dash--;
-    // 대쉬 1회 소모 후, 일정 프레임 뒤에 1칸 회복되는 구조
     player.dashCooldown = DASH.RECHARGE_FRAMES;
 }
 
 function updateHUD() {
-    document.querySelector(".gauge.hp div").style.width =
-        `${(player.hp / player.maxHp) * 100}%`;
-
-    document.querySelector(".gauge.shield div").style.width =
-        `${(player.shield / player.maxShield) * 100}%`;
+    const hpBar = document.querySelector(".gauge.hp div");
+    const shBar = document.querySelector(".gauge.shield div");
+    if (hpBar) hpBar.style.width = `${(player.hp / player.maxHp) * 100}%`;
+    if (shBar) shBar.style.width = `${(player.shield / player.maxShield) * 100}%`;
 
     const dashIcons = document.getElementById("dash-icons");
-    dashIcons.innerHTML = "";
-    for (let i = 0; i < player.dash; i++) {
-        dashIcons.innerHTML += "<span></span>";
+    if (dashIcons) {
+        dashIcons.innerHTML = "";
+        for (let i = 0; i < player.dash; i++) dashIcons.innerHTML += "<span></span>";
     }
 }
 
@@ -246,6 +328,12 @@ function damagePlayer(dmg) {
     } else {
         player.hp -= dmg;
     }
+
+    // 체력 0이면 게임오버
+    if (player.hp <= 0) {
+        player.hp = 0;
+        gameOver();
+    }
 }
 
 /* ======================
@@ -253,12 +341,6 @@ function damagePlayer(dmg) {
 ====================== */
 let enemies = [];
 
-// =====================
-// ENEMY TYPES (타입별 이동/공격/데미지)
-// - 각 타입의 스탯/행동을 여기서 한 번에 조절
-// - 공격방식은 현재: contact(접촉)
-//   shooter 타입은 원거리 투사체(기본 구현) 포함
-// =====================
 const ENEMY_TYPES = {
     grunt: {
         label: "GRUNT",
@@ -326,15 +408,10 @@ const ENEMY_TYPES = {
 };
 
 function pickEnemyType() {
-    // 스테이지/웨이브에 따라 타입 비율이 조금씩 바뀌게(원하는대로 조절 가능)
     const r = Math.random();
     if (stage <= 1 && wave <= 1) return "grunt";
-    if (stage <= 1) {
-        return r < 0.65 ? "grunt" : (r < 0.85 ? "runner" : "tank");
-    }
-    if (stage === 2) {
-        return r < 0.45 ? "grunt" : (r < 0.7 ? "runner" : (r < 0.88 ? "tank" : "shooter"));
-    }
+    if (stage <= 1) return r < 0.65 ? "grunt" : (r < 0.85 ? "runner" : "tank");
+    if (stage === 2) return r < 0.45 ? "grunt" : (r < 0.7 ? "runner" : (r < 0.88 ? "tank" : "shooter"));
     return r < 0.35 ? "grunt" : (r < 0.55 ? "runner" : (r < 0.75 ? "tank" : "shooter"));
 }
 
@@ -345,17 +422,13 @@ function spawnEnemy(type = pickEnemyType()) {
     const speed = cfg.speedBase + cfg.speedPerStage * stage;
     const atk = Math.round(cfg.atkBase + cfg.atkPerStage * stage);
 
-    // ✅ 스폰 위치를 '맵 안'에서 뽑기 (+ 플레이어와 너무 붙지 않게)
     const MIN_SPAWN_DIST = 180;
     let p = null;
     for (let tries = 0; tries < 30; tries++) {
         const cand = randomPointInMap(cfg.r + 2);
         const d = Math.hypot(cand.x - player.x, cand.y - player.y);
-        if (d >= MIN_SPAWN_DIST) {
-            p = cand;
-            break;
-        }
-        p = cand; // 마지막 후보라도 저장
+        if (d >= MIN_SPAWN_DIST) { p = cand; break; }
+        p = cand;
     }
 
     return {
@@ -369,14 +442,11 @@ function spawnEnemy(type = pickEnemyType()) {
         speed,
         atk,
 
-        // 타입별 동작용 런타임 상태
         seed: Math.random() * 10000,
         shotAt: 0,
 
-        // 접촉 공격 쿨다운(개별)
         nextContactAt: 0,
 
-        // 넉백 속도
         kbVx: 0,
         kbVy: 0
     };
@@ -395,7 +465,16 @@ function drawEnemyHp(e) {
 }
 
 function startWave() {
-    const count = stage * 5 + wave * 3; // 웨이브당 몬스터 수(원하면 wave까지 반영 가능)
+    // ✅ 웨이브 시작할 때마다 맵을 새로 뽑음
+    loadMap();
+
+    // (선택) 이전 웨이브 잔여 투사체/이펙트 정리
+    bullets.length = 0;
+    enemyBullets.length = 0;
+    meleeEffects.length = 0;
+    damageTexts.length = 0;
+
+    const count = stage * 5 + wave * 3;
     for (let i = 0; i < count; i++) enemies.push(spawnEnemy());
     updateStageText();
     setBossHudVisible(false);
@@ -409,33 +488,36 @@ let boss = null;
 function spawnBoss() {
     const baseHp = 50 + stage * 30;
 
+    const spawnX = currentMap.cx;
+    const spawnY = (currentMap.shape === "rect")
+        ? (currentMap.cy - currentMap.height / 2 + 60)
+        : (currentMap.cy - currentMap.radius + 90);
+
     boss = {
         type: "boss",
         isBoss: true,
-        x: canvas.width / 2,
-        y: canvas.height / 2 - currentMap.height / 2 + 60,
+        x: spawnX,
+        y: spawnY,
         r: 40,
         maxHp: baseHp,
         hp: baseHp,
         phase: 1,
 
-        // 보스 접촉 공격력
         atk: 8 + stage * 2,
 
-        // 보스 접촉 공격 주기(개별)
         contactIntervalMs: 450,
         nextContactAt: 0,
 
-        // 넉백 속도(보스는 약하게 적용)
         kbVx: 0,
         kbVy: 0
     };
 
-    // 스폰 직후 맵 안으로 보정
     clampCircleToMap(boss);
 }
 
 function startBoss() {
+    loadMap();
+
     gameState = GameState.BOSS;
     spawnBoss();
     updateStageText();
@@ -450,55 +532,42 @@ let bullets = [];
 let enemyBullets = [];
 let mouse = { x: 0, y: 0 };
 
-// 업그레이드(추후 확장용)
-// - pierce: 원거리 공격 관통 여부 (지금은 false)
-const UPGRADES = {
-    pierce: 0
-};
+const UPGRADES = { pierce: 0 };
 
 canvas.addEventListener("mousemove", e => {
     mouse.x = e.clientX;
     mouse.y = e.clientY;
 });
 
-// 처음이 근접이어도 공격되도록: 누르면 무조건 shooting=true
 canvas.addEventListener("mousedown", () => {
+    if (appState !== AppState.PLAYING) return;
     shooting = true;
 });
-
-canvas.addEventListener("mouseup", () => {
-    shooting = false;
-});
+canvas.addEventListener("mouseup", () => shooting = false);
 window.addEventListener("blur", () => shooting = false);
 canvas.addEventListener("mouseleave", () => shooting = false);
 
 function meleeAttackCone() {
     const range = MELEE.RANGE;
     const cone = MELEE.SPREAD;
-
     const baseAngle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
 
-    // 공통: 부채꼴(거리+각도) 판정
     function isInCone(tx, ty, extraRadius = 0) {
         const dx = tx - player.x;
         const dy = ty - player.y;
         const dist = Math.hypot(dx, dy);
-
         if (dist > range + extraRadius) return false;
 
         const ang = Math.atan2(dy, dx);
         let diff = Math.abs(ang - baseAngle);
         if (diff > Math.PI) diff = Math.PI * 2 - diff;
-
         return diff <= cone / 2;
     }
 
-    // 1) 보스도 범위 안이면 타격
     if (boss && isInCone(boss.x, boss.y, boss.r)) {
         applyPlayerHit(boss, DAMAGE.MELEE, -boss.r, "melee", boss.x - player.x, boss.y - player.y);
     }
 
-    // 2) 범위 안의 모든 몬스터 타격
     enemies.forEach(e => {
         if (isInCone(e.x, e.y, e.r)) {
             applyPlayerHit(e, DAMAGE.MELEE, 0, "melee", e.x - player.x, e.y - player.y);
@@ -507,11 +576,7 @@ function meleeAttackCone() {
 }
 
 function spawnMeleeEffect() {
-    const angle = Math.atan2(
-        mouse.y - player.y,
-        mouse.x - player.x
-    );
-
+    const angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
     meleeEffects.push({
         x: player.x,
         y: player.y,
@@ -539,27 +604,21 @@ function updatePlayer() {
     vx /= len;
     vy /= len;
 
-    // 마지막 이동 방향 기억 (대쉬 방향용)
     if (vx !== 0 || vy !== 0) {
         player.lastMoveVx = vx;
         player.lastMoveVy = vy;
     }
 
-    // 대쉬 이동(Shift)
     if (player.isDashing) {
         player.x += player.dashVx * DASH.SPEED;
         player.y += player.dashVy * DASH.SPEED;
         player.dashTimeLeft--;
-        if (player.dashTimeLeft <= 0) {
-            player.isDashing = false;
-        }
+        if (player.dashTimeLeft <= 0) player.isDashing = false;
     } else {
-        // 일반 이동
         player.x += vx * player.speed;
         player.y += vy * player.speed;
     }
 
-    // 대쉬 회복(1칸씩)
     if (player.dash < player.maxDash) {
         player.dashCooldown--;
         if (player.dashCooldown <= 0) {
@@ -568,7 +627,6 @@ function updatePlayer() {
         }
     }
 
-    // 맵 경계
     clampPlayerToMap();
 }
 
@@ -582,12 +640,10 @@ function updateEnemies(now) {
         const ux = dxp / dist;
         const uy = dyp / dist;
 
-        // ---- 타입별 이동 ----
         if (cfg.move === "chase") {
             e.x += ux * e.speed;
             e.y += uy * e.speed;
         } else if (cfg.move === "zigzag") {
-            // 플레이어를 향해 가되, 수직 방향으로 좌우 흔들림
             const px = -uy;
             const py = ux;
             const wobble = Math.sin((now + e.seed) * (cfg.zigzagFreq || 0.015)) * (cfg.zigzagAmp || 1);
@@ -602,20 +658,16 @@ function updateEnemies(now) {
                 e.x -= ux * e.speed;
                 e.y -= uy * e.speed;
             } else {
-                // 거리 유지: 측면 이동
                 const px = -uy;
                 const py = ux;
                 e.x += px * e.speed * 0.9;
                 e.y += py * e.speed * 0.9;
             }
         } else {
-            // fallback
             e.x += ux * e.speed;
             e.y += uy * e.speed;
         }
 
-
-        // ---- 넉백 적용(플레이어 공격에 맞으면 튕김) ----
         if (e.kbVx || e.kbVy) {
             e.x += e.kbVx;
             e.y += e.kbVy;
@@ -627,7 +679,6 @@ function updateEnemies(now) {
             if (Math.abs(e.kbVy) < 0.02) e.kbVy = 0;
         }
 
-        // ---- 타입별 공격(기본 구현) ----
         if (cfg.attack === "ranged") {
             if ((now - e.shotAt) >= (cfg.shotIntervalMs || 900)) {
                 e.shotAt = now;
@@ -645,7 +696,6 @@ function updateEnemies(now) {
             }
         }
 
-        // ---- 플레이어 관통 방지(밀어내기) ----
         const dx = e.x - player.x;
         const dy = e.y - player.y;
         const d = Math.hypot(dx, dy);
@@ -658,15 +708,12 @@ function updateEnemies(now) {
             e.y = player.y + ny * minDist;
         }
 
-        // ✅ 적도 맵 밖으로 못 나가게
         clampCircleToMap(e);
     });
 
-    // 죽은 적 제거
     enemies = enemies.filter(e => e.hp > 0);
 }
 
-// 플레이어가 큰 원(보스 등)을 통과하지 못하게 하는 충돌 보정
 function resolvePlayerAgainstCircle(cx, cy, cr) {
     const dx = player.x - cx;
     const dy = player.y - cy;
@@ -674,7 +721,6 @@ function resolvePlayerAgainstCircle(cx, cy, cr) {
     const minDist = player.r + cr;
 
     if (dist < minDist) {
-        // dist가 0이면 임의 방향
         const nx = dist === 0 ? 1 : dx / dist;
         const ny = dist === 0 ? 0 : dy / dist;
         player.x = cx + nx * minDist;
@@ -683,44 +729,92 @@ function resolvePlayerAgainstCircle(cx, cy, cr) {
 }
 
 function clampPlayerToMap() {
-    const left = canvas.width / 2 - currentMap.width / 2 + player.r;
-    const right = canvas.width / 2 + currentMap.width / 2 - player.r;
-    const top = canvas.height / 2 - currentMap.height / 2 + player.r;
-    const bottom = canvas.height / 2 + currentMap.height / 2 - player.r;
-    player.x = Math.max(left, Math.min(right, player.x));
-    player.y = Math.max(top, Math.min(bottom, player.y));
+    if (currentMap.shape === "rect") {
+        const b = getMapBounds(player.r);
+        player.x = Math.max(b.left, Math.min(b.right, player.x));
+        player.y = Math.max(b.top, Math.min(b.bottom, player.y));
+        return;
+    }
+
+    // circle
+    const cx = currentMap.cx;
+    const cy = currentMap.cy;
+    const maxDist = Math.max(0, (currentMap.radius || 0) - player.r);
+
+    const dx = player.x - cx;
+    const dy = player.y - cy;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist > maxDist) {
+        const nx = dist === 0 ? 1 : dx / dist;
+        const ny = dist === 0 ? 0 : dy / dist;
+        player.x = cx + nx * maxDist;
+        player.y = cy + ny * maxDist;
+    }
 }
 
-
-// =====================
-// MAP BOUNDS HELPERS (적/보스도 맵 밖으로 못 나가게)
-// =====================
 function getMapBounds(margin = 0) {
-    const left = canvas.width / 2 - currentMap.width / 2 + margin;
-    const right = canvas.width / 2 + currentMap.width / 2 - margin;
-    const top = canvas.height / 2 - currentMap.height / 2 + margin;
-    const bottom = canvas.height / 2 + currentMap.height / 2 - margin;
+    // rect 전용 bounds
+    const left = currentMap.cx - currentMap.width / 2 + margin;
+    const right = currentMap.cx + currentMap.width / 2 - margin;
+    const top = currentMap.cy - currentMap.height / 2 + margin;
+    const bottom = currentMap.cy + currentMap.height / 2 - margin;
     return { left, right, top, bottom };
 }
 
 function clampCircleToMap(obj) {
     if (!obj) return;
-    const b = getMapBounds(obj.r || 0);
-    obj.x = Math.max(b.left, Math.min(b.right, obj.x));
-    obj.y = Math.max(b.top, Math.min(b.bottom, obj.y));
+
+    const r = obj.r || 0;
+
+    if (currentMap.shape === "rect") {
+        const b = getMapBounds(r);
+        obj.x = Math.max(b.left, Math.min(b.right, obj.x));
+        obj.y = Math.max(b.top, Math.min(b.bottom, obj.y));
+        return;
+    }
+
+    // circle
+    const cx = currentMap.cx;
+    const cy = currentMap.cy;
+    const maxDist = Math.max(0, (currentMap.radius || 0) - r);
+
+    const dx = obj.x - cx;
+    const dy = obj.y - cy;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist > maxDist) {
+        const nx = dist === 0 ? 1 : dx / dist;
+        const ny = dist === 0 ? 0 : dy / dist;
+        obj.x = cx + nx * maxDist;
+        obj.y = cy + ny * maxDist;
+    }
 }
 
 function randomPointInMap(margin = 0) {
-    const b = getMapBounds(margin);
+    if (currentMap.shape === "rect") {
+        const b = getMapBounds(margin);
+        return {
+            x: b.left + Math.random() * (b.right - b.left),
+            y: b.top + Math.random() * (b.bottom - b.top)
+        };
+    }
+
+    // circle: 균일 분포(면적) 샘플링
+    const cx = currentMap.cx;
+    const cy = currentMap.cy;
+    const rr = Math.max(0, (currentMap.radius || 0) - margin);
+
+    const ang = Math.random() * Math.PI * 2;
+    const rad = Math.sqrt(Math.random()) * rr;
+
     return {
-        x: b.left + Math.random() * (b.right - b.left),
-        y: b.top + Math.random() * (b.bottom - b.top)
+        x: cx + Math.cos(ang) * rad,
+        y: cy + Math.sin(ang) * rad
     };
 }
 
-
 function updateContactDamage(now) {
-    // 닿아있는 '각 적'이 자신의 공격 주기대로 데미지를 줌(개별 쿨다운)
     for (let i = 0; i < enemies.length; i++) {
         const e = enemies[i];
         const cfg = ENEMY_TYPES[e.type] || ENEMY_TYPES.grunt;
@@ -735,7 +829,6 @@ function updateContactDamage(now) {
         }
     }
 
-    // 보스도 개별 주기 적용
     if (boss) {
         const dBoss = Math.hypot(boss.x - player.x, boss.y - player.y);
         if (dBoss <= boss.r + player.r + 0.01) {
@@ -748,20 +841,12 @@ function updateContactDamage(now) {
     }
 }
 
-function updateDamageTexts() {
-    damageTexts.forEach(t => {
-        t.y -= 0.5;
-        t.life--;
-    });
-    damageTexts = damageTexts.filter(t => t.life > 0);
-}
-
 function updateBoss() {
     if (!boss) return;
+
     boss.phase = boss.hp < 40 ? 2 : 1;
     boss.x += Math.sin(Date.now() * 0.002) * boss.phase;
 
-    // ---- 보스 넉백 적용 ----
     if (boss.kbVx || boss.kbVy) {
         boss.x += boss.kbVx;
         boss.y += boss.kbVy;
@@ -771,10 +856,8 @@ function updateBoss() {
         if (Math.abs(boss.kbVy) < 0.02) boss.kbVy = 0;
     }
 
-    // ✅ 보스도 맵 밖으로 못 나가게
     clampCircleToMap(boss);
 
-    // ✅ 보스도 플레이어가 통과 불가
     resolvePlayerAgainstCircle(boss.x, boss.y, boss.r);
     clampPlayerToMap();
 
@@ -786,13 +869,11 @@ function updateBoss() {
         stage++;
         wave = 1;
         gameState = GameState.WAVE;
-        loadMap();
         startWave();
         updateStageText();
     }
 }
 
-// 웨이브 클리어 시 다음 웨이브/보스로 자동 전환
 function updateWaveProgress() {
     if (gameState !== GameState.WAVE) return;
     if (enemies.length > 0) return;
@@ -806,7 +887,6 @@ function updateWaveProgress() {
 }
 
 function updateBullets() {
-    // 근접 유지 공격
     if (shooting && player.mode === "melee") {
         shootCooldown--;
         if (shootCooldown <= 0) {
@@ -816,7 +896,6 @@ function updateBullets() {
         }
     }
 
-    // 원거리 연사
     if (shooting && player.mode === "range") {
         shootCooldown--;
         if (shootCooldown <= 0) {
@@ -829,17 +908,15 @@ function updateBullets() {
                 r: 4,
                 pierceLeft: UPGRADES.pierce
             });
-            shootCooldown = 30; // 연사 속도
+            shootCooldown = 25;
         }
     }
 
-    // --- 투사체 이동 + 충돌(기본: 관통 없음) ---
     for (let i = bullets.length - 1; i >= 0; i--) {
         const b = bullets[i];
         b.x += b.vx;
         b.y += b.vy;
 
-        // 화면 밖 제거
         if (b.x < -50 || b.x > canvas.width + 50 || b.y < -50 || b.y > canvas.height + 50) {
             bullets.splice(i, 1);
             continue;
@@ -847,7 +924,6 @@ function updateBullets() {
 
         let hit = false;
 
-        // 보스 우선 판정
         if (boss) {
             const dBoss = Math.hypot(b.x - boss.x, b.y - boss.y);
             if (dBoss < boss.r + (b.r || 0)) {
@@ -859,7 +935,6 @@ function updateBullets() {
             }
         }
 
-        // 일반 몬스터 판정
         if (!hit) {
             for (let j = enemies.length - 1; j >= 0; j--) {
                 const e = enemies[j];
@@ -875,17 +950,12 @@ function updateBullets() {
             }
         }
 
-        // 기본: 1회 타격 후 제거(=관통 X)
         if (hit) {
-            if (b.pierceLeft > 0) {
-                b.pierceLeft--;
-            } else {
-                bullets.splice(i, 1);
-            }
+            if (b.pierceLeft > 0) b.pierceLeft--;
+            else bullets.splice(i, 1);
         }
     }
 
-    // 원거리로 죽은 적 즉시 정리(웨이브 전환이 바로 되도록)
     enemies = enemies.filter(e => e.hp > 0);
 }
 
@@ -896,13 +966,11 @@ function updateEnemyBullets(now) {
         b.y += b.vy;
         b.life--;
 
-        // 화면 밖 또는 수명 끝
         if (b.life <= 0 || b.x < -60 || b.x > canvas.width + 60 || b.y < -60 || b.y > canvas.height + 60) {
             enemyBullets.splice(i, 1);
             continue;
         }
 
-        // 플레이어 피격
         const d = Math.hypot(b.x - player.x, b.y - player.y);
         if (d < (b.r || 0) + player.r) {
             damagePlayer(b.dmg || 1);
@@ -913,9 +981,7 @@ function updateEnemyBullets(now) {
 }
 
 function updateMeleeEffects() {
-    meleeEffects.forEach(e => {
-        e.life--;
-    });
+    meleeEffects.forEach(e => e.life--);
     meleeEffects = meleeEffects.filter(e => e.life > 0);
 }
 
@@ -925,12 +991,21 @@ function updateMeleeEffects() {
 function drawMap() {
     ctx.strokeStyle = "#00eaff";
     ctx.lineWidth = 3;
-    ctx.strokeRect(
-        canvas.width / 2 - currentMap.width / 2,
-        canvas.height / 2 - currentMap.height / 2,
-        currentMap.width,
-        currentMap.height
-    );
+
+    if (currentMap.shape === "rect") {
+        ctx.strokeRect(
+            currentMap.cx - currentMap.width / 2,
+            currentMap.cy - currentMap.height / 2,
+            currentMap.width,
+            currentMap.height
+        );
+        return;
+    }
+
+    // circle
+    ctx.beginPath();
+    ctx.arc(currentMap.cx, currentMap.cy, currentMap.radius, 0, Math.PI * 2);
+    ctx.stroke();
 }
 
 function drawCircle(x, y, r, c) {
@@ -950,13 +1025,7 @@ function drawMeleeEffects() {
 
         ctx.beginPath();
         ctx.moveTo(0, 0);
-        ctx.arc(
-            0,
-            0,
-            e.radius,
-            -e.spread / 2,
-            e.spread / 2
-        );
+        ctx.arc(0, 0, e.radius, -e.spread / 2, e.spread / 2);
         ctx.closePath();
 
         ctx.fillStyle = `rgba(0, 255, 255, ${0.28 * t})`;
@@ -975,11 +1044,9 @@ function draw() {
 
     const now = performance.now();
     const flashing = now < hitFlashUntil;
-    const blinkOff = flashing && (Math.floor(now / 80) % 2 === 0); // 80ms 간격 깜빡
+    const blinkOff = flashing && (Math.floor(now / 80) % 2 === 0);
 
-    if (!blinkOff) {
-        drawCircle(player.x, player.y, player.r, "#0ff");
-    }
+    if (!blinkOff) drawCircle(player.x, player.y, player.r, "#0ff");
 
     drawMeleeEffects();
 
@@ -994,9 +1061,11 @@ function draw() {
 }
 
 /* ======================
-   LOOP
+   LOOP (PLAYING일 때만)
 ====================== */
 function loop() {
+    if (appState !== AppState.PLAYING) return;
+
     const now = performance.now();
 
     updatePlayer();
@@ -1008,15 +1077,15 @@ function loop() {
     updateContactDamage(now);
     updateWaveProgress();
 
-    draw();
-    requestAnimationFrame(loop);
-
     updateHUD();
     updateMeleeEffects();
+    draw();
+
+    rafId = requestAnimationFrame(loop);
 }
 
 /* ======================
-   INIT
+   INIT (HUD)
 ====================== */
 const stageEl = document.getElementById("stage");
 const mode = document.getElementById("mode");
@@ -1043,13 +1112,89 @@ function updateBossHud() {
 
 function updateStageText() {
     if (!stageEl) return;
-    if (gameState === GameState.BOSS) {
-        stageEl.innerText = `STAGE ${stage}  /  BOSS`;
-    } else {
-        stageEl.innerText = `STAGE ${stage}  /  WAVE ${wave}/${WAVES_PER_STAGE}`;
-    }
+    if (gameState === GameState.BOSS) stageEl.innerText = `STAGE ${stage}  /  BOSS`;
+    else stageEl.innerText = `STAGE ${stage}  /  WAVE ${wave}/${WAVES_PER_STAGE}`;
 }
 
-loadMap();
-startWave();
-loop();
+/* ======================
+   START / RESET / GAMEOVER / MENU
+====================== */
+function resetRun() {
+    // 진행 상태 초기화
+    gameState = GameState.WAVE;
+    stage = 1;
+    wave = 1;
+
+    // 전투/오브젝트
+    enemies = [];
+    bullets = [];
+    enemyBullets = [];
+    boss = null;
+
+    shootCooldown = 0;
+    damageTexts = [];
+    meleeEffects = [];
+
+    hitFlashUntil = 0;
+
+    // 플레이어 초기화
+    player.mode = "melee";
+    player.hp = player.maxHp;
+    player.shield = player.maxShield;
+
+    player.dash = player.maxDash;
+    player.isDashing = false;
+    player.dashCooldown = 0;
+    player.dashTimeLeft = 0;
+    player.dashVx = 0;
+    player.dashVy = 0;
+    player.lastMoveVx = 1;
+    player.lastMoveVy = 0;
+
+    safeClearInputs();
+
+    loadMap();
+    startWave();
+    updateStageText();
+    updateHUD();
+    draw();
+}
+
+function startGame() {
+    stopLoop();
+    resetRun();
+    setAppState(AppState.PLAYING);
+    rafId = requestAnimationFrame(loop);
+}
+
+function gameOver() {
+    if (appState !== AppState.PLAYING) return;
+
+    stopLoop();
+    setAppState(AppState.GAMEOVER);
+
+    if (UI.gameOverDesc) {
+        UI.gameOverDesc.textContent =
+            `도달: STAGE ${stage} / ${gameState === GameState.BOSS ? "BOSS" : `WAVE ${wave}`}`;
+    }
+
+    shooting = false;
+    draw();
+}
+
+function goToMenu() {
+    stopLoop();
+    safeClearInputs();
+    setAppState(AppState.MENU);
+    draw();
+}
+
+/* ======================
+   BUTTONS + BOOT
+====================== */
+if (UI.btnStart) UI.btnStart.addEventListener("click", startGame);
+if (UI.btnToMain) UI.btnToMain.addEventListener("click", goToMenu);
+
+// ✅ 처음은 메인 화면
+setAppState(AppState.MENU);
+draw();

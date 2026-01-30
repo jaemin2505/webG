@@ -175,3 +175,261 @@ body {
     background: linear-gradient(90deg, rgba(255, 0, 255, 0.95), rgba(255, 140, 255, 0.95));
     box-shadow: 0 0 14px rgba(255, 0, 255, 0.65);
 }
+
+/* =========================
+   OVERLAY (MENU / GAMEOVER)
+========================= */
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    display: grid;
+    place-items: center;
+    background: rgba(0, 0, 0, .55);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.overlay.is-hidden {
+    display: none;
+}
+
+.overlay__card {
+    width: min(520px, calc(100vw - 40px));
+    padding: 26px 22px;
+    border-radius: 18px;
+
+    background: rgba(5, 10, 25, 0.78);
+    border: 1px solid rgba(0, 255, 255, 0.55);
+    box-shadow:
+        0 0 18px rgba(0, 255, 255, 0.25),
+        inset 0 0 14px rgba(0, 255, 255, 0.14);
+
+    color: #00eaff;
+    text-align: center;
+}
+
+.overlay__title {
+    margin: 0 0 10px;
+    font-size: 34px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-shadow: 0 0 18px rgba(0, 255, 255, .55);
+}
+
+.overlay__desc {
+    margin: 0 0 18px;
+    font-size: 14px;
+    font-weight: 700;
+    opacity: .9;
+    line-height: 1.5;
+}
+
+.btn {
+    appearance: none;
+    border: 0;
+    cursor: pointer;
+    border-radius: 14px;
+    padding: 12px 16px;
+    min-width: 180px;
+
+    font-weight: 900;
+    letter-spacing: 1px;
+
+    transition: transform .08s ease, filter .12s ease;
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+.btn--primary {
+    background: rgba(0, 255, 255, .18);
+    color: #00eaff;
+    border: 1px solid rgba(0, 255, 255, .55);
+    box-shadow: 0 0 16px rgba(0, 255, 255, .25);
+}
+
+.btn--primary:hover {
+    filter: brightness(1.12);
+}
+
+.btn--ghost {
+    background: rgba(255, 255, 255, .06);
+    color: #00eaff;
+    border: 1px solid rgba(0, 255, 255, .35);
+}
+
+.btn--ghost:hover {
+    filter: brightness(1.10);
+}
+
+/* =========================
+   OVERLAY (MENU / GAMEOVER)
+========================= */
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    display: grid;
+    place-items: center;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.overlay.is-hidden {
+    display: none;
+}
+
+.overlay__card {
+    width: min(520px, calc(100vw - 40px));
+    padding: 26px 22px;
+    border-radius: 18px;
+
+    background: rgba(5, 10, 25, 0.78);
+    border: 1px solid rgba(0, 255, 255, 0.55);
+    box-shadow:
+        0 0 18px rgba(0, 255, 255, 0.25),
+        inset 0 0 14px rgba(0, 255, 255, 0.14);
+
+    color: #00eaff;
+    text-align: center;
+}
+
+.overlay__title {
+    margin: 0 0 10px;
+    font-size: 34px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-shadow: 0 0 18px rgba(0, 255, 255, 0.55);
+}
+
+.overlay__desc {
+    margin: 0 0 18px;
+    font-size: 14px;
+    font-weight: 700;
+    opacity: 0.9;
+    line-height: 1.5;
+}
+
+.btn {
+    appearance: none;
+    border: 0;
+    cursor: pointer;
+    border-radius: 14px;
+    padding: 12px 16px;
+    min-width: 180px;
+
+    font-weight: 900;
+    letter-spacing: 1px;
+
+    transition: transform 0.08s ease, filter 0.12s ease;
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+.btn--primary {
+    background: rgba(0, 255, 255, 0.18);
+    color: #00eaff;
+    border: 1px solid rgba(0, 255, 255, 0.55);
+    box-shadow: 0 0 16px rgba(0, 255, 255, 0.25);
+}
+
+.btn--primary:hover {
+    filter: brightness(1.12);
+}
+
+.btn--ghost {
+    background: rgba(255, 255, 255, 0.06);
+    color: #00eaff;
+    border: 1px solid rgba(0, 255, 255, 0.35);
+}
+
+.btn--ghost:hover {
+    filter: brightness(1.10);
+}
+
+/* =========================
+   OVERLAY (MENU / GAMEOVER)
+========================= */
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    display: grid;
+    place-items: center;
+    background: rgba(0, 0, 0, .55);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.overlay.is-hidden {
+    display: none;
+}
+
+.overlay__card {
+    width: min(520px, calc(100vw - 40px));
+    padding: 26px 22px;
+    border-radius: 18px;
+    background: rgba(5, 10, 25, 0.78);
+    border: 1px solid rgba(0, 255, 255, 0.55);
+    box-shadow: 0 0 18px rgba(0, 255, 255, .25), inset 0 0 14px rgba(0, 255, 255, .14);
+    color: #00eaff;
+    text-align: center;
+}
+
+.overlay__title {
+    margin: 0 0 10px;
+    font-size: 34px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-shadow: 0 0 18px rgba(0, 255, 255, .55);
+}
+
+.overlay__desc {
+    margin: 0 0 18px;
+    font-size: 14px;
+    font-weight: 700;
+    opacity: .9;
+    line-height: 1.5;
+}
+
+.btn {
+    appearance: none;
+    border: 0;
+    cursor: pointer;
+    border-radius: 14px;
+    padding: 12px 16px;
+    min-width: 180px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    transition: transform .08s ease, filter .12s ease;
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+.btn--primary {
+    background: rgba(0, 255, 255, .18);
+    color: #00eaff;
+    border: 1px solid rgba(0, 255, 255, .55);
+    box-shadow: 0 0 16px rgba(0, 255, 255, .25);
+}
+
+.btn--primary:hover {
+    filter: brightness(1.12);
+}
+
+.btn--ghost {
+    background: rgba(255, 255, 255, .06);
+    color: #00eaff;
+    border: 1px solid rgba(0, 255, 255, .35);
+}
+
+.btn--ghost:hover {
+    filter: brightness(1.10);
+}
